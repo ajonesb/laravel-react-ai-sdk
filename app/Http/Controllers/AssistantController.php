@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Prism\Prism\Prism;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\ValueObjects\Messages\UserMessage;
-use Prism\Prism\ValueObjects\Messages\AssistantMessage;
-use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Laravel\Ai\AnonymousAgent;
+use Laravel\Ai\Messages\UserMessage;
+use Laravel\Ai\Messages\AssistantMessage;
 
 class AssistantController extends Controller
 {
@@ -19,6 +17,7 @@ class AssistantController extends Controller
     public function chat(Request $request)
     {
         $messages = [];
+        $systemInstructions = 'You are a helpful assistant.';
 
         foreach ($request->input('messages', []) as $msg) {
             if ($msg['role'] === 'user') {
@@ -26,15 +25,30 @@ class AssistantController extends Controller
             } elseif ($msg['role'] === 'assistant') {
                 $messages[] = new AssistantMessage($msg['content']);
             } elseif ($msg['role'] === 'system') {
-                $messages[] = new SystemMessage($msg['content']);
+                // System messages become instructions for the agent
+                $systemInstructions = $msg['content'];
             }
         }
 
+        // Extract the last user message to use as the prompt
+        $lastMessage = array_pop($messages);
+
+        if (!$lastMessage instanceof UserMessage) {
+            return response()->json(['error' => 'Last message must be from user.'], 400);
+        }
+
         try {
-            $response = prism()->text()
-                ->using(Provider::Groq, 'llama-3.3-70b-versatile')
-                ->withMessages($messages)
-                ->asText();
+            $agent = new AnonymousAgent(
+                instructions: $systemInstructions,
+                messages: $messages,
+                tools: []
+            );
+
+            $response = $agent->prompt(
+                prompt: $lastMessage->content,
+                provider: 'groq',
+                model: 'llama-3.3-70b-versatile'
+            );
 
             return response()->json([
                 'content' => $response->text,
