@@ -1,8 +1,8 @@
-# Multimodal Persona Studio 🎭🖼️
+# Laravel AI SDK Starter with React
 
 A high-performance AI Assistant built with **Laravel 12**, **React**, and the **Laravel AI SDK**. This application demonstrates advanced AI capabilities including persona-based instruction, vision models, and document processing.
 
-## 🌟 Key Features
+## Key Features
 
 - **Persona Studio**: Switch between distinct AI personalities (**General**, **Code Architect**, **Creative Writer**, **Bible Coach**).
 - **Multimodal Support**: 
@@ -13,7 +13,7 @@ A high-performance AI Assistant built with **Laravel 12**, **React**, and the **
 
 ---
 
-## 🧠 Behind the Scenes: Laravel AI SDK
+## Behind the Scenes: Laravel AI SDK
 
 The application leverages the [Laravel AI SDK](https://github.com/laravel/ai) to provide a unified, developer-friendly interface for interacting with LLMs.
 
@@ -25,7 +25,7 @@ The application leverages the [Laravel AI SDK](https://github.com/laravel/ai) to
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Frontend (React + Inertia)
 - **State Managed UI**: A robust React component (`Assistant.tsx`) manages chat history, file uploads, and persona themes.
@@ -41,12 +41,10 @@ The application leverages the [Laravel AI SDK](https://github.com/laravel/ai) to
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 1. **Prerequisites**: Ensure `pdftotext` is installed (`sudo apt install poppler-utils`).
 2. **Install**: Run `composer install` and `npm install`.
 3. **Secrets**: Add your `GROQ_API_KEY` to the `.env` file.
 4. **Run**: `php artisan serve` and `npm run dev`.
 
----
-*Built with ❤️ using the Laravel AI SDK.*
