@@ -6,6 +6,11 @@ use Illuminate\Http\Request;
 use Laravel\Ai\AnonymousAgent;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Messages\AssistantMessage;
+use Laravel\Ai\Files\Image;
+use Laravel\Ai\Files\Document;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 class AssistantController extends Controller
 {
@@ -61,12 +66,67 @@ class AssistantController extends Controller
         }
 
         $prompt = $lastMessage->content;
+        $attachments = [];
+        $model = 'llama-3.3-70b-versatile';
+
+        Log::info('Chat request received', [
+            'persona' => $selectedPersona,
+            'is_multipart' => $request->isJson() ? 'no' : 'yes',
+            'has_files' => $request->hasFile('attachments') ? 'yes' : 'no',
+            'files_count' => $request->hasFile('attachments') ? count($request->file('attachments')) : 0,
+        ]);
+
+        // Handle uploaded files
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $mime = $file->getMimeType();
+                Log::info('Processing attachment', [
+                    'name' => $file->getClientOriginalName(),
+                    'mime' => $mime,
+                ]);
+
+                if (str_starts_with($mime, 'image/')) {
+                    $attachments[] = Image::fromUpload($file);
+                    // Switch to vision model if image is present
+                    $model = 'llama-3.2-90b-vision-preview'; // Upgrade to 90b for better vision
+                } elseif (str_starts_with($mime, 'text/') || $mime === 'application/json') {
+                    // Creative addition: Extract text and append to prompt
+                    $content = $file->get();
+                    $prompt .= "\n\n[Content of attached file {$file->getClientOriginalName()}]:\n{$content}";
+                } elseif ($mime === 'application/pdf') {
+                    // Extract text from PDF using pdftotext
+                    $tempPath = $file->store('temp', 'local');
+                    $absolutePath = Storage::disk('local')->path($tempPath);
+
+                    Log::info('Attempting PDF extraction', ['path' => $absolutePath, 'exists' => file_exists($absolutePath)]);
+
+                    $result = Process::run(['pdftotext', $absolutePath, '-']);
+
+                    if ($result->successful()) {
+                        $content = $result->output();
+                        $prompt .= "\n\n[Extracted text from PDF {$file->getClientOriginalName()}]:\n{$content}";
+                        Log::info('Successfully extracted text from PDF', ['name' => $file->getClientOriginalName()]);
+                    } else {
+                        Log::error('Failed to extract text from PDF', [
+                            'name' => $file->getClientOriginalName(),
+                            'error' => $result->errorOutput()
+                        ]);
+                        $prompt .= "\n\n[Warning: Could not extract text from PDF {$file->getClientOriginalName()}]";
+                    }
+
+                    Storage::delete($tempPath);
+                } else {
+                    // For other files, we still add as attachment in case provider supports it
+                    $attachments[] = Document::fromUpload($file);
+                }
+            }
+        }
 
         // Handle Quick Actions
         if ($request->filled('quick_action')) {
             $action = $request->input('quick_action');
             $prompt = match ($action) {
-                'summarize' => "Please summarize the following text concisely: \n\n" . $prompt,
+                'summarize' => "Please summarize the following text or attached document concisely: \n\n" . $prompt,
                 'explain' => "Explain this like I am 5 years old: \n\n" . $prompt,
                 'fix' => "Please fix any grammar or spelling mistakes in this text and provide the corrected version: \n\n" . $prompt,
                 default => $prompt
@@ -82,8 +142,9 @@ class AssistantController extends Controller
 
             $response = $agent->prompt(
                 prompt: $prompt,
+                attachments: $attachments,
                 provider: 'groq',
-                model: 'llama-3.3-70b-versatile'
+                model: $model
             );
 
             return response()->json([
