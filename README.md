@@ -48,3 +48,7 @@ The application leverages the [Laravel AI SDK](https://github.com/laravel/ai) to
 3. **Secrets**: Add your `GROQ_API_KEY` to the `.env` file.
 4. **Run**: `php artisan serve` and `npm run dev`.
 
+
+<img width="1904" height="1077" alt="image" src="https://github.com/user-attachments/assets/7d721682-5633-4b64-84ef-3ca19ff41e03" />
+
+
